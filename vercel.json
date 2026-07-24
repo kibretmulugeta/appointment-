@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd scheduler/frontend && npm install && npm run build",
+  "outputDirectory": "scheduler/frontend/dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
