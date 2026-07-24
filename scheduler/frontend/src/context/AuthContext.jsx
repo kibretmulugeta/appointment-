@@ -17,7 +17,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.get('/auth/me');
       setUser(data);
-    } catch (error) {
+      if (window.location.search.includes('oauth=success')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch {
       setUser(null);
     } finally {
       setLoading(false);

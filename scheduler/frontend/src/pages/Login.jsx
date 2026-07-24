@@ -1,14 +1,31 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../services/api';
 import { LogIn, Mail } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'google_not_configured') {
+      setError('Google OAuth is not configured on the server. Please use email & password.');
+    } else if (errorParam === 'github_not_configured') {
+      setError('GitHub OAuth is not configured on the server. Please use email & password.');
+    } else if (errorParam === 'oauth_failed') {
+      setError('OAuth authentication failed. Please try again.');
+    } else if (errorParam === 'no_code') {
+      setError('OAuth authorization code was not received.');
+    } else if (errorParam) {
+      setError(`Authentication error: ${errorParam}`);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,11 +39,11 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    window.location.href = `${API_BASE_URL}/auth/google`;
   };
 
   const handleGithubLogin = () => {
-    window.location.href = 'http://localhost:5000/api/auth/github';
+    window.location.href = `${API_BASE_URL}/auth/github`;
   };
 
   return (
