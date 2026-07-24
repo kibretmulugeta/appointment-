@@ -6,31 +6,34 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
-// Connect to database
-connectDB();
-
 const app = express();
+
+// Ensure DB is connected for serverless invocations
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan('dev'));
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL || true,
     credentials: true,
   })
 );
 
 // Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-// app.use('/api/users', require('./routes/userRoutes'));
-// app.use('/api/tasks', require('./routes/taskRoutes'));
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 
-// Basic health check route
-app.get('/api/health', (req, res) => {
+// Health check routes
+app.get(['/api/health', '/health'], (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
 });
 
