@@ -21,8 +21,12 @@ const googleAuth = (req, res) => {
 
 // Google OAuth callback
 const googleCallback = async (req, res) => {
-  const { code } = req.query;
+  const { code, error: reqError } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  if (reqError) {
+    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(reqError)}`);
+  }
 
   if (!code) {
     return res.redirect(`${frontendUrl}/login?error=no_code`);
@@ -65,11 +69,12 @@ const googleCallback = async (req, res) => {
       await user.save();
     }
 
-    generateToken(res, user._id);
-    res.redirect(`${frontendUrl}/?oauth=success`);
+    const token = generateToken(res, user._id);
+    res.redirect(`${frontendUrl}/?token=${token}&oauth=success`);
   } catch (error) {
+    const errorDetails = error.response?.data?.error_description || error.response?.data?.error || error.message;
     console.error('Google OAuth Error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorDetails)}`);
   }
 };
 
@@ -90,8 +95,12 @@ const githubAuth = (req, res) => {
 
 // GitHub OAuth callback
 const githubCallback = async (req, res) => {
-  const { code } = req.query;
+  const { code, error: reqError } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  if (reqError) {
+    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(reqError)}`);
+  }
 
   if (!code) {
     return res.redirect(`${frontendUrl}/login?error=no_code`);
@@ -149,11 +158,12 @@ const githubCallback = async (req, res) => {
       await user.save();
     }
 
-    generateToken(res, user._id);
-    res.redirect(`${frontendUrl}/?oauth=success`);
+    const token = generateToken(res, user._id);
+    res.redirect(`${frontendUrl}/?token=${token}&oauth=success`);
   } catch (error) {
+    const errorDetails = error.response?.data?.error_description || error.response?.data?.error || error.message;
     console.error('GitHub OAuth Error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorDetails)}`);
   }
 };
 
