@@ -27,6 +27,9 @@ app.use(
   })
 );
 
+const path = require('path');
+const fs = require('fs');
+
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
@@ -39,6 +42,18 @@ app.use('/tasks', taskRoutes);
 app.get(['/api/health', '/health'], (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
 });
+
+// Serve frontend dist assets if present (Render standalone deployment)
+const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+      return next();
+    }
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

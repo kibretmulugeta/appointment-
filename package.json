@@ -2,6 +2,10 @@
   "name": "fullstack-sync-schedule",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "start": "node api/index.js",
+    "build": "cd scheduler/frontend && npm install && npm run build"
+  },
   "dependencies": {
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
