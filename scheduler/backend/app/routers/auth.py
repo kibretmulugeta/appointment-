@@ -94,7 +94,7 @@ async def google_auth(request: Request):
         f"client_id={settings.GOOGLE_CLIENT_ID}&"
         f"redirect_uri={callback_url}&"
         f"response_type=code&"
-        f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20https://www.googleapis.com/auth/contacts.readonly&"
+        f"scope=openid%20profile%20email&"
         f"access_type=offline"
     )
     return RedirectResponse(google_url)
