@@ -46,4 +46,7 @@ async def get_current_user(
         raise credentials_exception
         
     user["id"] = str(user["_id"])
+    del user["_id"]
+    if "password" in user:
+        del user["password"]
     return user
