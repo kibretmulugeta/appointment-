@@ -33,7 +33,9 @@ async def get_current_user(
     user_id = payload["sub"]
     db = get_database()
     if db is None:
-        raise HTTPException(status_code=500, detail="Database connection uninitialized")
+        from app.database import connect_to_mongo
+        await connect_to_mongo()
+        db = get_database()
         
     try:
         user = await db.users.find_one({"_id": ObjectId(user_id)})
