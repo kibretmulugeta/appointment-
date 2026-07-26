@@ -113,57 +113,65 @@ async def google_callback(request: Request, code: str = None, error: str = None)
     if error or not code:
         return RedirectResponse(f"{frontend_url}/login?error={error or 'no_code'}")
 
-    callback_url = get_redirect_uri(request)
-    tokens = await exchange_google_code_for_token(code, redirect_uri=callback_url)
-    if not tokens or "access_token" not in tokens:
-        return RedirectResponse(f"{frontend_url}/login?error=token_exchange_failed")
+    try:
+        callback_url = get_redirect_uri(request)
+        tokens = await exchange_google_code_for_token(code, redirect_uri=callback_url)
+        if not tokens or "access_token" not in tokens:
+            return RedirectResponse(f"{frontend_url}/login?error=token_exchange_failed")
 
-    access_token = tokens["access_token"]
-    google_profile = await get_google_user_profile(access_token)
-    if not google_profile or "email" not in google_profile:
-        return RedirectResponse(f"{frontend_url}/login?error=failed_to_fetch_google_profile")
+        access_token = tokens["access_token"]
+        google_profile = await get_google_user_profile(access_token)
+        if not google_profile or "email" not in google_profile:
+            return RedirectResponse(f"{frontend_url}/login?error=failed_to_fetch_google_profile")
 
-    email = google_profile["email"].lower()
-    google_id = google_profile.get("id")
-    name = google_profile.get("name", email.split('@')[0])
-    avatar = google_profile.get("picture", "")
+        email = google_profile["email"].lower()
+        google_id = google_profile.get("id")
+        name = google_profile.get("name", email.split('@')[0])
+        avatar = google_profile.get("picture", "")
 
-    db = get_database()
-    user = await db.users.find_one({"email": email})
+        db = get_database()
+        if db is None:
+            await connect_to_mongo()
+            db = get_database()
 
-    if not user:
-        user_doc = {
-            "name": name,
-            "email": email,
-            "provider": "google",
-            "providerId": google_id,
-            "googleAccessToken": access_token,
-            "avatar": avatar,
-            "emailVerified": True,
-            "timezone": "UTC",
-            "notificationPreferences": {"email": True, "sms": False, "inApp": True},
-            "createdAt": datetime.now(timezone.utc)
-        }
-        res = await db.users.insert_one(user_doc)
-        user_id = str(res.inserted_id)
-    else:
-        user_id = str(user["_id"])
-        await db.users.update_one(
-            {"_id": user["_id"]},
-            {"$set": {"providerId": google_id, "avatar": avatar or user.get("avatar"), "googleAccessToken": access_token}}
+        user = await db.users.find_one({"email": email})
+
+        if not user:
+            user_doc = {
+                "name": name,
+                "email": email,
+                "provider": "google",
+                "providerId": google_id,
+                "googleAccessToken": access_token,
+                "avatar": avatar,
+                "emailVerified": True,
+                "timezone": "UTC",
+                "notificationPreferences": {"email": True, "sms": False, "inApp": True},
+                "createdAt": datetime.now(timezone.utc)
+            }
+            res = await db.users.insert_one(user_doc)
+            user_id = str(res.inserted_id)
+        else:
+            user_id = str(user["_id"])
+            await db.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"providerId": google_id, "avatar": avatar or user.get("avatar"), "googleAccessToken": access_token}}
+            )
+
+        jwt_token = create_access_token(user_id)
+        redirect_res = RedirectResponse(f"{frontend_url}/?token={jwt_token}&oauth=success")
+        redirect_res.set_cookie(
+            key="token",
+            value=jwt_token,
+            httponly=True,
+            max_age=30 * 24 * 3600,
+            samesite="lax",
+            secure=settings.ENV == "production"
         )
-
-    jwt_token = create_access_token(user_id)
-    redirect_res = RedirectResponse(f"{frontend_url}/?token={jwt_token}&oauth=success")
-    redirect_res.set_cookie(
-        key="token",
-        value=jwt_token,
-        httponly=True,
-        max_age=30 * 24 * 3600,
-        samesite="lax",
-        secure=settings.ENV == "production"
-    )
-    return redirect_res
+        return redirect_res
+    except Exception as e:
+        logger.error(f"Google Callback Error: {e}")
+        return RedirectResponse(f"{frontend_url}/login?error=oauth_error")
 
 @router.get("/github")
 async def github_auth():

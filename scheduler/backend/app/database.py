@@ -24,6 +24,8 @@ async def resolve_atlas_srv(hostname: str) -> str:
 
 async def connect_to_mongo():
     global client, db
+    if db is not None:
+        return db
     mongo_uri = settings.MONGO_URI.strip()
     if not mongo_uri:
         raise ValueError("MONGO_URI is missing in configuration settings")
