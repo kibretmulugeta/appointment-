@@ -77,12 +77,22 @@ async def login(credentials: UserLogin, response: Response):
 
     return {"success": True, "token": token, "user": user}
 
+def get_redirect_uri(request: Request) -> str:
+    if settings.GOOGLE_CALLBACK_URL and "localhost" not in settings.GOOGLE_CALLBACK_URL and "127.0.0.1" not in settings.GOOGLE_CALLBACK_URL:
+        return settings.GOOGLE_CALLBACK_URL
+    base = str(request.base_url).rstrip('/')
+    # Enforce HTTPS on production hosts like Render / Vercel
+    if base.startswith("http://") and "localhost" not in base and "127.0.0.1" not in base:
+        base = base.replace("http://", "https://")
+    return f"{base}/api/auth/google/callback"
+
 @router.get("/google")
-async def google_auth():
+async def google_auth(request: Request):
+    callback_url = get_redirect_uri(request)
     google_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth?"
         f"client_id={settings.GOOGLE_CLIENT_ID}&"
-        f"redirect_uri={settings.GOOGLE_CALLBACK_URL}&"
+        f"redirect_uri={callback_url}&"
         f"response_type=code&"
         f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20https://www.googleapis.com/auth/contacts.readonly&"
         f"access_type=offline"
@@ -90,12 +100,13 @@ async def google_auth():
     return RedirectResponse(google_url)
 
 @router.get("/google/callback")
-async def google_callback(code: str = None, error: str = None):
+async def google_callback(request: Request, code: str = None, error: str = None):
     frontend_url = settings.FRONTEND_URL.rstrip('/')
     if error or not code:
         return RedirectResponse(f"{frontend_url}/login?error={error or 'no_code'}")
 
-    tokens = await exchange_google_code_for_token(code)
+    callback_url = get_redirect_uri(request)
+    tokens = await exchange_google_code_for_token(code, redirect_uri=callback_url)
     if not tokens or "access_token" not in tokens:
         return RedirectResponse(f"{frontend_url}/login?error=token_exchange_failed")
 
