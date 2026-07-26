@@ -99,9 +99,17 @@ async def google_auth(request: Request):
     )
     return RedirectResponse(google_url)
 
+def get_frontend_url(request: Request) -> str:
+    if settings.FRONTEND_URL and "localhost" not in settings.FRONTEND_URL and "127.0.0.1" not in settings.FRONTEND_URL:
+        return settings.FRONTEND_URL.rstrip('/')
+    base = str(request.base_url).rstrip('/')
+    if base.startswith("http://") and "localhost" not in base and "127.0.0.1" not in base:
+        base = base.replace("http://", "https://")
+    return base
+
 @router.get("/google/callback")
 async def google_callback(request: Request, code: str = None, error: str = None):
-    frontend_url = settings.FRONTEND_URL.rstrip('/')
+    frontend_url = get_frontend_url(request)
     if error or not code:
         return RedirectResponse(f"{frontend_url}/login?error={error or 'no_code'}")
 
