@@ -5,7 +5,7 @@ from app.config import settings
 
 logger = logging.getLogger("scheduler.google")
 
-async def exchange_google_code_for_token(code: str, redirect_uri: str = None) => Dict[str, Any]:
+async def exchange_google_code_for_token(code: str, redirect_uri: str = None) -> Dict[str, Any]:
     """Exchange authorization code for Google access token."""
     callback_url = redirect_uri or settings.GOOGLE_CALLBACK_URL
     async with httpx.AsyncClient() as client:
