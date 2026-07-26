@@ -12,7 +12,10 @@ import {
   HelpCircle,
   ArrowRight,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Compass,
+  Navigation,
+  ExternalLink
 } from 'lucide-react';
 import { format, parseISO, isToday, isAfter } from 'date-fns';
 import api from '../services/api';
@@ -22,9 +25,12 @@ export default function Dashboard({ onOpenCreateModal }) {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [liveLocation, setLiveLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(true);
 
   useEffect(() => {
     fetchAppointments();
+    detectLiveLocation();
   }, []);
 
   const fetchAppointments = async () => {
@@ -36,6 +42,31 @@ export default function Dashboard({ onOpenCreateModal }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const detectLiveLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLiveLocation({
+          latitude: lat,
+          longitude: lng,
+          name: `Current Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+          google_maps_url: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+        });
+        setLocationLoading(false);
+      },
+      (err) => {
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleRSVP = async (apptId, statusChoice) => {
@@ -81,6 +112,49 @@ export default function Dashboard({ onOpenCreateModal }) {
           </button>
         </div>
       </div>
+
+      {/* Live Geolocation Card Banner */}
+      {liveLocation && (
+        <div className="bg-slate-900/80 border border-emerald-500/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl backdrop-blur-xl">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+              <Compass className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  📍 Live Location Active
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-white mt-1">
+                GPS: Lat {liveLocation.latitude.toFixed(4)}, Lng {liveLocation.longitude.toFixed(4)}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Detected via browser live geolocation</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <a
+              href={liveLocation.google_maps_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-700 transition-colors"
+            >
+              <Navigation className="w-4 h-4 text-emerald-400" />
+              <span>View Map</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              onClick={onOpenCreateModal}
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Schedule Here</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

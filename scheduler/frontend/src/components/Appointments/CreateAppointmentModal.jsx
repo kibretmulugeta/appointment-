@@ -1,9 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Calendar, Clock, MapPin, Users, AlertTriangle, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import LocationPicker from '../Maps/LocationPicker';
 import ContactPicker from '../Contacts/ContactPicker';
 import api from '../../services/api';
+
+const formatTime12h = (time24) => {
+  if (!time24) return '';
+  const [hStr, mStr] = time24.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr || '00';
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+};
+
+const getInitialTimes = () => {
+  const now = new Date();
+  const minutes = now.getMinutes();
+  now.setMinutes(minutes >= 30 ? 60 : 30, 0, 0); // Round up to next 30 mins
+
+  const dateStr = now.toISOString().split('T')[0];
+  const startStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const end = new Date(now.getTime() + 60 * 60 * 1000);
+  const endStr = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+
+  return { date: dateStr, startTime: startStr, endTime: endStr };
+};
 
 export default function CreateAppointmentModal({ isOpen, onClose, onSuccess }) {
   const navigate = useNavigate();
@@ -15,9 +39,9 @@ export default function CreateAppointmentModal({ isOpen, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
-    startTime: '10:00',
-    endTime: '11:00',
+    date: '',
+    startTime: '',
+    endTime: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     location: {
       name: '',
@@ -29,6 +53,25 @@ export default function CreateAppointmentModal({ isOpen, onClose, onSuccess }) {
     },
     participants: []
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      const times = getInitialTimes();
+      setFormData({
+        title: '',
+        description: '',
+        date: times.date,
+        startTime: times.startTime,
+        endTime: times.endTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        location: { name: '', address: '', latitude: null, longitude: null, place_id: '', google_maps_url: '' },
+        participants: []
+      });
+      setStep(1);
+      setError('');
+      setWarning('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -158,9 +201,14 @@ export default function CreateAppointmentModal({ isOpen, onClose, onSuccess }) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase mb-2">
-                    Start Time
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-xs font-bold text-slate-300 uppercase">
+                      Start Time
+                    </label>
+                    <span className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      {formatTime12h(formData.startTime)}
+                    </span>
+                  </div>
                   <input
                     type="time"
                     value={formData.startTime}
@@ -168,10 +216,16 @@ export default function CreateAppointmentModal({ isOpen, onClose, onSuccess }) {
                     className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase mb-2">
-                    End Time
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-xs font-bold text-slate-300 uppercase">
+                      End Time
+                    </label>
+                    <span className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      {formatTime12h(formData.endTime)}
+                    </span>
+                  </div>
                   <input
                     type="time"
                     value={formData.endTime}

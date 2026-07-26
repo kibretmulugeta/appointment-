@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Search, ExternalLink, Check, Navigation } from 'lucide-react';
+import { MapPin, Search, ExternalLink, Check, Navigation, Compass, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 
 export default function LocationPicker({ location, onChange }) {
   const [query, setQuery] = useState(location?.name || '');
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
@@ -43,11 +44,60 @@ export default function LocationPicker({ location, onChange }) {
     setShowDropdown(false);
   };
 
+  const handleUseLiveLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const placeName = `My Live Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+        const placeObj = {
+          name: placeName,
+          address: `GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          latitude: lat,
+          longitude: lng,
+          place_id: `live_gps_${Date.now()}`,
+          google_maps_url: mapsUrl
+        };
+
+        handleSelectPlace(placeObj);
+        setGeoLoading(false);
+      },
+      (err) => {
+        alert('Could not retrieve live GPS location. Please allow location access in your browser.');
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   return (
     <div className="space-y-3 relative">
-      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-        Appointment Location (Google Maps)
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+          Appointment Location (Google Maps)
+        </label>
+        <button
+          type="button"
+          onClick={handleUseLiveLocation}
+          disabled={geoLoading}
+          className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1 rounded-lg border border-indigo-500/20 transition-colors"
+        >
+          {geoLoading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Compass className="w-3.5 h-3.5" />
+          )}
+          <span>{geoLoading ? 'Detecting GPS...' : '📍 Use Live GPS Location'}</span>
+        </button>
+      </div>
 
       <div className="relative">
         <div className="relative flex items-center">
@@ -58,7 +108,7 @@ export default function LocationPicker({ location, onChange }) {
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setShowDropdown(true)}
             placeholder="Search location (e.g. Starbucks Bole Road)"
-            className="w-full pl-10 pr-10 py-3 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full pl-10 pr-10 py-3 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
           />
           {loading && (
             <div className="absolute right-3.5 w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
