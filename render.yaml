@@ -1,15 +1,23 @@
 services:
   - type: web
-    name: scheduler-app
+    name: appointment-9giq
     env: python
     buildCommand: "pip install -r scheduler/backend/requirements.txt && cd scheduler/frontend && npm install && npm run build"
     startCommand: "cd scheduler/backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: MONGO_URI
-        sync: false
+        value: mongodb+srv://google-db:google-google@cluster0.vfutu6u.mongodb.net/scheduler?retryWrites=true&w=majority
       - key: JWT_SECRET
-        generateValue: true
+        value: super_secret_jwt_key_production_2026
+      - key: FRONTEND_URL
+        value: https://appointment-9giq.onrender.com
+      - key: BACKEND_URL
+        value: https://appointment-9giq.onrender.com
+      - key: GOOGLE_CALLBACK_URL
+        value: https://appointment-9giq.onrender.com/api/auth/google/callback
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
         sync: false
