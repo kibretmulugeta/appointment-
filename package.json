@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node api/index.js",
-    "build": "cd scheduler/frontend && npm install --include=dev && npm run build"
+    "build": "npm install && cd scheduler/frontend && npm install --include=dev && npm run build"
   },
   "dependencies": {
     "axios": "^1.18.1",
