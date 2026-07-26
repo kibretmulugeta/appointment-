@@ -29,8 +29,11 @@ app.use(
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/tasks', taskRoutes);
 
 // Health check routes
 app.get(['/api/health', '/health'], (req, res) => {
