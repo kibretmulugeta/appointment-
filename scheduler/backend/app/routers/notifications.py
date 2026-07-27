@@ -122,4 +122,57 @@ async def save_sms_config(
     )
     return {"success": True, "message": "Twilio SMS configuration saved successfully!"}
 
+@router.get("/email-config")
+async def get_email_config(current_user: dict = Depends(get_current_user)):
+    db = get_database()
+    host, port, user = "", 587, ""
+    if db is not None:
+        doc = await db.app_settings.find_one({"key": "email_config"})
+        if doc:
+            host = doc.get("host", "")
+            port = doc.get("port", 587)
+            user = doc.get("user", "")
+
+    return {
+        "configured": bool(host and user),
+        "host": host,
+        "port": port,
+        "user": user,
+    }
+
+@router.post("/email-config")
+async def save_email_config(
+    payload: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_database()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection unavailable")
+
+    host = payload.get("host", "smtp.gmail.com").strip()
+    port = int(payload.get("port", 587))
+    user = payload.get("user", "").strip()
+    password = payload.get("pass", "").strip()
+    from_email = payload.get("fromEmail", user).strip()
+
+    if not (host and user and password):
+        raise HTTPException(status_code=400, detail="SMTP Host, Username, and Password are required")
+
+    await db.app_settings.update_one(
+        {"key": "email_config"},
+        {
+            "$set": {
+                "host": host,
+                "port": port,
+                "user": user,
+                "pass": password,
+                "fromEmail": from_email,
+                "updatedBy": current_user.get("id"),
+            }
+        },
+        upsert=True
+    )
+    return {"success": True, "message": "SMTP Email Gateway configuration saved successfully!"}
+
+
 

@@ -32,6 +32,18 @@ export default function ProfilePage() {
     phoneNumber: ''
   });
 
+  // SMTP Email Gateway Config State
+  const [showEmailConfig, setShowEmailConfig] = useState(false);
+  const [savingEmailConfig, setSavingEmailConfig] = useState(false);
+  const [emailConfigMsg, setEmailConfigMsg] = useState('');
+  const [emailConfigForm, setEmailConfigForm] = useState({
+    host: 'smtp.gmail.com',
+    port: 587,
+    user: '',
+    pass: '',
+    fromEmail: ''
+  });
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -42,6 +54,7 @@ export default function ProfilePage() {
       });
     }
     fetchSmsConfig();
+    fetchEmailConfig();
   }, [user]);
 
   const fetchSmsConfig = async () => {
@@ -58,6 +71,38 @@ export default function ProfilePage() {
       // Ignore background errors
     }
   };
+
+  const fetchEmailConfig = async () => {
+    try {
+      const { data } = await api.get('/notifications/email-config');
+      if (data) {
+        setEmailConfigForm({
+          host: data.host || 'smtp.gmail.com',
+          port: data.port || 587,
+          user: data.user || '',
+          pass: '',
+          fromEmail: data.user || ''
+        });
+      }
+    } catch {
+      // Ignore background errors
+    }
+  };
+
+  const handleSaveEmailConfig = async () => {
+    setSavingEmailConfig(true);
+    setEmailConfigMsg('');
+    try {
+      const { data } = await api.post('/notifications/email-config', emailConfigForm);
+      setEmailConfigMsg(data.message || 'SMTP Email configuration saved!');
+      fetchEmailConfig();
+    } catch (err) {
+      setEmailConfigMsg(err.response?.data?.detail || 'Failed to save Email configuration.');
+    } finally {
+      setSavingEmailConfig(false);
+    }
+  };
+
 
   const handleSaveSmsConfig = async () => {
     setSavingSmsConfig(true);
@@ -254,7 +299,93 @@ export default function ProfilePage() {
                   <p className="text-[11px] leading-relaxed opacity-90">{testEmailStatus.message}</p>
                 </div>
               )}
+
+              {/* Email Gateway Credentials UI */}
+              <div className="mt-3 pt-3 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setShowEmailConfig(!showEmailConfig)}
+                  className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>{showEmailConfig ? 'Hide Email Gateway Credentials' : '⚙️ Configure Live Email Gateway (SMTP / Gmail)'}</span>
+                </button>
+
+                {showEmailConfig && (
+                  <div className="mt-3 p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">SMTP Email Server Settings</span>
+                      <span className="text-[10px] text-slate-400">e.g. Gmail, Outlook, Resend</span>
+                    </div>
+
+                    {emailConfigMsg && (
+                      <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-xs text-indigo-300 font-medium">
+                        {emailConfigMsg}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">SMTP Host</label>
+                          <input
+                            type="text"
+                            placeholder="smtp.gmail.com"
+                            value={emailConfigForm.host}
+                            onChange={(e) => setEmailConfigForm({ ...emailConfigForm, host: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Port</label>
+                          <input
+                            type="number"
+                            placeholder="587"
+                            value={emailConfigForm.port}
+                            onChange={(e) => setEmailConfigForm({ ...emailConfigForm, port: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">SMTP Username / Email</label>
+                        <input
+                          type="email"
+                          placeholder="your_email@gmail.com"
+                          value={emailConfigForm.user}
+                          onChange={(e) => setEmailConfigForm({ ...emailConfigForm, user: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">SMTP Password / App Password</label>
+                        <input
+                          type="password"
+                          placeholder="••••••••••••••••"
+                          value={emailConfigForm.pass}
+                          onChange={(e) => setEmailConfigForm({ ...emailConfigForm, pass: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveEmailConfig}
+                        disabled={savingEmailConfig}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{savingEmailConfig ? 'Saving Email Config...' : 'Save Email Gateway Credentials'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
 
             {/* SMS Notifications Toggle & Test */}
             <div className="space-y-2 pt-3 border-t border-slate-800">

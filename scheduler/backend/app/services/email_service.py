@@ -8,50 +8,80 @@ from app.config import settings
 
 logger = logging.getLogger("scheduler.email")
 
-def _send_smtp_sync(to_email: str, subject: str, html_content: str) -> bool:
+from app.database import get_database
+
+def _send_smtp_sync(host: str, port: int, user: str, password: str, from_email: str, to_email: str, subject: str, html_content: str) -> tuple[bool, str]:
     """Synchronous SMTP helper run inside threadpool to prevent event loop blocking."""
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = settings.EMAIL_FROM
+        msg["From"] = from_email or user
         msg["To"] = to_email
         msg.attach(MIMEText(html_content, "html"))
 
-        port = int(settings.EMAIL_PORT)
         if port == 465:
-            server = smtplib.SMTP_SSL(settings.EMAIL_HOST, port, timeout=10.0)
+            server = smtplib.SMTP_SSL(host, port, timeout=10.0)
         else:
-            server = smtplib.SMTP(settings.EMAIL_HOST, port, timeout=10.0)
+            server = smtplib.SMTP(host, port, timeout=10.0)
             server.starttls()
 
-        if settings.EMAIL_USER and settings.EMAIL_PASS:
-            server.login(settings.EMAIL_USER, settings.EMAIL_PASS)
+        if user and password:
+            server.login(user, password)
 
-        server.sendmail(settings.EMAIL_FROM, [to_email], msg.as_string())
+        server.sendmail(from_email or user, [to_email], msg.as_string())
         server.quit()
-        logger.info(f"✅ Email sent via SMTP to {to_email}")
-        return True
+        logger.info(f"✅ Email sent via SMTP ({host}) to {to_email}")
+        return True, f"Email delivered via SMTP ({host}) to {to_email}"
     except Exception as e:
         logger.warning(f"SMTP send email error: {e}")
-        return False
+        return False, str(e)
+
+async def get_email_credentials() -> tuple[str, int, str, str, str, str]:
+    """Retrieve Email credentials from settings (.env) or MongoDB database."""
+    host = settings.EMAIL_HOST.strip() if settings.EMAIL_HOST else ""
+    port = settings.EMAIL_PORT or 587
+    user = settings.EMAIL_USER.strip() if settings.EMAIL_USER else ""
+    password = settings.EMAIL_PASS.strip() if settings.EMAIL_PASS else ""
+    from_email = settings.EMAIL_FROM.strip() if settings.EMAIL_FROM else ""
+    api_key = settings.EMAIL_API_KEY.strip() if settings.EMAIL_API_KEY else ""
+
+    if not (api_key or (host and user and password)):
+        db = get_database()
+        if db is not None:
+            try:
+                doc = await db.app_settings.find_one({"key": "email_config"})
+                if doc:
+                    host = doc.get("host", host).strip()
+                    port = int(doc.get("port", port))
+                    user = doc.get("user", user).strip()
+                    password = doc.get("pass", password).strip()
+                    from_email = doc.get("fromEmail", from_email).strip()
+                    api_key = doc.get("apiKey", api_key).strip()
+            except Exception as e:
+                logger.warning(f"Error reading Email config from DB: {e}")
+
+    return host, port, user, password, from_email, api_key
 
 async def send_email(to_email: str, subject: str, html_content: str) -> dict:
     """Send HTML email using Resend API if API Key configured, SMTP if credentials present, or simulation fallback."""
     if not to_email:
         return {"success": False, "provider": "none", "message": "Recipient email is missing."}
 
+    host, port, user, password, from_email, api_key = await get_email_credentials()
+    sender = from_email or user or "Scheduler <noreply@scheduler.com>"
+
     # 1. Try Resend API if key is present
-    if settings.EMAIL_API_KEY:
+    if api_key:
         try:
             async with httpx.AsyncClient() as client:
                 res = await client.post(
                     "https://api.resend.com/emails",
                     headers={
-                        "Authorization": f"Bearer {settings.EMAIL_API_KEY}",
+                        "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
                     },
                     json={
-                        "from": settings.EMAIL_FROM,
+                        "from": sender,
                         "to": [to_email],
                         "subject": subject,
                         "html": html_content,
@@ -63,22 +93,26 @@ async def send_email(to_email: str, subject: str, html_content: str) -> dict:
                     return {"success": True, "provider": "resend", "message": f"Email delivered via Resend API to {to_email}"}
                 else:
                     logger.warning(f"Resend API error: {res.status_code} {res.text}")
+                    return {"success": False, "provider": "resend", "message": f"Resend API error ({res.status_code}): {res.text}"}
         except Exception as e:
             logger.warning(f"Failed to send email via Resend API: {e}")
 
     # 2. Try SMTP if credentials present
-    if settings.EMAIL_HOST and settings.EMAIL_USER and settings.EMAIL_PASS:
-        success = await asyncio.to_thread(_send_smtp_sync, to_email, subject, html_content)
+    if host and user and password:
+        success, msg_detail = await asyncio.to_thread(_send_smtp_sync, host, port, user, password, sender, to_email, subject, html_content)
         if success:
-            return {"success": True, "provider": "smtp", "message": f"Email delivered via SMTP to {to_email}"}
+            return {"success": True, "provider": "smtp", "message": msg_detail}
+        else:
+            return {"success": False, "provider": "smtp", "message": f"SMTP Error ({host}): {msg_detail}"}
 
     # 3. Fallback Simulation (logs to console/logger)
     logger.info(f"📧 [Email Simulation] To: {to_email} | Subject: {subject}")
     return {
         "success": True,
         "provider": "simulation",
-        "message": f"Simulated Email logged for {to_email}. Configure EMAIL_USER & EMAIL_PASS or EMAIL_API_KEY for live sending.",
+        "message": f"Simulated Email logged for {to_email}. Add your Gmail/SMTP credentials below to send live emails to real inbox.",
     }
+
 
 
 def generate_invitation_email(organizer_name: str, title: str, description: str, date_str: str, time_str: str, location_name: str, address: str, maps_url: str, invite_link: str) -> str:
