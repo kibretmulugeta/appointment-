@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Body
+from typing import List, Optional
 from bson import ObjectId
 from app.database import get_database
 from app.core.dependencies import get_current_user
 from app.models.notification import NotificationResponse
+from app.services.email_service import send_email
+from app.services.sms_service import send_sms
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
@@ -36,3 +38,38 @@ async def mark_all_read(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["id"])
     await db.notifications.update_many({"user_id": user_id, "read": False}, {"$set": {"read": True}})
     return {"success": True}
+
+@router.post("/test-email")
+async def test_email_notification(current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email")
+    if not user_email:
+        raise HTTPException(status_code=400, detail="User email is missing")
+
+    subject = "Scheduler Test Email Notification"
+    html = f"""
+    <div style="font-family: Arial, sans-serif; background: #0f172a; color: #fff; padding: 24px; border-radius: 12px;">
+      <h2 style="color: #6366f1;">✅ Email Notifications Operational</h2>
+      <p>Hello <strong>{current_user.get('name', 'User')}</strong>,</p>
+      <p>This is a test email sent from your <strong>Scheduler App</strong>.</p>
+      <p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">If you received this email, your email notification configuration is active.</p>
+    </div>
+    """
+    res = await send_email(user_email, subject, html)
+    return res
+
+@router.post("/test-sms")
+async def test_sms_notification(
+    payload: Optional[dict] = Body(default={}),
+    current_user: dict = Depends(get_current_user)
+):
+    phone = payload.get("phoneNumber") if payload else None
+    if not phone:
+        phone = current_user.get("phoneNumber")
+
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required. Please save a phone number in your profile first.")
+
+    message = f"⏰ Scheduler Test SMS: Hello {current_user.get('name', 'User')}, SMS notifications are active on your account!"
+    res = await send_sms(phone, message)
+    return res
+

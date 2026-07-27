@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import httpx
 import smtplib
@@ -7,10 +8,37 @@ from app.config import settings
 
 logger = logging.getLogger("scheduler.email")
 
-async def send_email(to_email: str, subject: str, html_content: str) -> bool:
-    """Send HTML email using Resend API if API Key is configured, or SMTP as fallback."""
-    if not to_email:
+def _send_smtp_sync(to_email: str, subject: str, html_content: str) -> bool:
+    """Synchronous SMTP helper run inside threadpool to prevent event loop blocking."""
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = settings.EMAIL_FROM
+        msg["To"] = to_email
+        msg.attach(MIMEText(html_content, "html"))
+
+        port = int(settings.EMAIL_PORT)
+        if port == 465:
+            server = smtplib.SMTP_SSL(settings.EMAIL_HOST, port, timeout=10.0)
+        else:
+            server = smtplib.SMTP(settings.EMAIL_HOST, port, timeout=10.0)
+            server.starttls()
+
+        if settings.EMAIL_USER and settings.EMAIL_PASS:
+            server.login(settings.EMAIL_USER, settings.EMAIL_PASS)
+
+        server.sendmail(settings.EMAIL_FROM, [to_email], msg.as_string())
+        server.quit()
+        logger.info(f"✅ Email sent via SMTP to {to_email}")
+        return True
+    except Exception as e:
+        logger.warning(f"SMTP send email error: {e}")
         return False
+
+async def send_email(to_email: str, subject: str, html_content: str) -> dict:
+    """Send HTML email using Resend API if API Key configured, SMTP if credentials present, or simulation fallback."""
+    if not to_email:
+        return {"success": False, "provider": "none", "message": "Recipient email is missing."}
 
     # 1. Try Resend API if key is present
     if settings.EMAIL_API_KEY:
@@ -32,7 +60,7 @@ async def send_email(to_email: str, subject: str, html_content: str) -> bool:
                 )
                 if res.status_code in [200, 201, 202]:
                     logger.info(f"✅ Email sent via Resend API to {to_email}")
-                    return True
+                    return {"success": True, "provider": "resend", "message": f"Email delivered via Resend API to {to_email}"}
                 else:
                     logger.warning(f"Resend API error: {res.status_code} {res.text}")
         except Exception as e:
@@ -40,25 +68,18 @@ async def send_email(to_email: str, subject: str, html_content: str) -> bool:
 
     # 2. Try SMTP if credentials present
     if settings.EMAIL_HOST and settings.EMAIL_USER and settings.EMAIL_PASS:
-        try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"] = settings.EMAIL_FROM
-            msg["To"] = to_email
-            msg.attach(MIMEText(html_content, "html"))
+        success = await asyncio.to_thread(_send_smtp_sync, to_email, subject, html_content)
+        if success:
+            return {"success": True, "provider": "smtp", "message": f"Email delivered via SMTP to {to_email}"}
 
-            server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT)
-            server.starttls()
-            server.login(settings.EMAIL_USER, settings.EMAIL_PASS)
-            server.sendmail(settings.EMAIL_FROM, [to_email], msg.as_string())
-            server.quit()
-            logger.info(f"✅ Email sent via SMTP to {to_email}")
-            return True
-        except Exception as e:
-            logger.warning(f"SMTP send email error: {e}")
-
+    # 3. Fallback Simulation (logs to console/logger)
     logger.info(f"📧 [Email Simulation] To: {to_email} | Subject: {subject}")
-    return True
+    return {
+        "success": True,
+        "provider": "simulation",
+        "message": f"Simulated Email logged for {to_email}. Configure EMAIL_USER & EMAIL_PASS or EMAIL_API_KEY for live sending.",
+    }
+
 
 def generate_invitation_email(organizer_name: str, title: str, description: str, date_str: str, time_str: str, location_name: str, address: str, maps_url: str, invite_link: str) -> str:
     return f"""

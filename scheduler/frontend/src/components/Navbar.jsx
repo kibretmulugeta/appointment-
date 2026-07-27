@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, Bell, Plus, LogOut, User, CheckCircle2, MapPin } from 'lucide-react';
+import { Calendar, Bell, Plus, LogOut, User, CheckCircle2, UserPlus, Users, ChevronDown, Check } from 'lucide-react';
 import api from '../services/api';
 
 export default function Navbar({ onOpenCreateModal }) {
-  const { user, logout } = useAuth();
+  const { user, logout, savedAccounts, switchAccount } = useAuth();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
@@ -38,6 +39,20 @@ export default function Navbar({ onOpenCreateModal }) {
       // Ignore
     }
   };
+
+  const handleSwitchAccount = async (acc) => {
+    setShowAccountMenu(false);
+    await switchAccount(acc);
+    navigate('/');
+  };
+
+  const handleAddAccount = () => {
+    setShowAccountMenu(false);
+    logout();
+    navigate('/login');
+  };
+
+  const otherAccounts = (savedAccounts || []).filter((acc) => acc.email !== user?.email);
 
   return (
     <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
@@ -73,7 +88,10 @@ export default function Navbar({ onOpenCreateModal }) {
           {user && (
             <div className="relative">
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setShowAccountMenu(false);
+                }}
                 className="relative p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white transition-colors border border-slate-700/50"
                 title="Notifications"
               >
@@ -143,27 +161,98 @@ export default function Navbar({ onOpenCreateModal }) {
             </div>
           )}
 
-          {/* User Profile */}
+          {/* User Profile & Account Switcher Dropdown */}
           {user ? (
-            <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
-              <Link to="/profile" className="flex items-center gap-2 group">
+            <div className="relative pl-2 border-l border-slate-800">
+              <button
+                onClick={() => {
+                  setShowAccountMenu(!showAccountMenu);
+                  setShowNotifications(false);
+                }}
+                className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-800/60 transition-colors border border-transparent hover:border-slate-800"
+              >
                 <img
-                  src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=6366f1&color=fff`}
+                  src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff`}
                   alt={user.name}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-indigo-500/30 group-hover:border-indigo-400 transition-all"
+                  className="w-9 h-9 rounded-full object-cover border-2 border-indigo-500/30"
                   referrerPolicy="no-referrer"
                 />
-                <span className="hidden md:inline-block text-sm font-medium text-slate-200 group-hover:text-white transition-colors">
+                <span className="hidden md:inline-block text-sm font-medium text-slate-200">
                   {user.name}
                 </span>
-              </Link>
-              <button
-                onClick={logout}
-                className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden md:inline-block" />
               </button>
+
+              {showAccountMenu && (
+                <div className="absolute right-0 mt-3 w-72 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl z-50 overflow-hidden backdrop-blur-xl p-2 space-y-1">
+                  <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center gap-3">
+                    <img
+                      src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff`}
+                      alt={user.name}
+                      className="w-9 h-9 rounded-full object-cover border border-indigo-500/40"
+                    />
+                    <div className="truncate">
+                      <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                    </div>
+                  </div>
+
+                  {otherAccounts.length > 0 && (
+                    <div className="pt-2 border-t border-slate-800/80 space-y-1">
+                      <span className="px-3 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Switch Account</span>
+                      {otherAccounts.map((acc) => (
+                        <button
+                          key={acc.email}
+                          onClick={() => handleSwitchAccount(acc)}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-800/80 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <img
+                              src={acc.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(acc.name)}&background=6366f1&color=fff`}
+                              alt={acc.name}
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
+                            <div className="truncate">
+                              <p className="text-xs font-semibold text-slate-200 truncate">{acc.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{acc.email}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-slate-800/80 space-y-1">
+                    <button
+                      onClick={handleAddAccount}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-xl transition-colors"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Add Another Account</span>
+                    </button>
+
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowAccountMenu(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Profile & Settings</span>
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -186,3 +275,4 @@ export default function Navbar({ onOpenCreateModal }) {
     </header>
   );
 }
+

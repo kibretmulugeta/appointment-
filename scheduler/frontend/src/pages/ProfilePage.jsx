@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, Clock, Bell, Check, Save } from 'lucide-react';
+import { User, Mail, Phone, Clock, Bell, Check, Save, Send, MessageSquare, AlertCircle } from 'lucide-react';
+import api from '../services/api';
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
@@ -16,6 +17,10 @@ export default function ProfilePage() {
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [testEmailLoading, setTestEmailLoading] = useState(false);
+  const [testSmsLoading, setTestSmsLoading] = useState(false);
+  const [testEmailStatus, setTestEmailStatus] = useState(null);
+  const [testSmsStatus, setTestSmsStatus] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -42,6 +47,38 @@ export default function ProfilePage() {
     }
   };
 
+  const handleTestEmail = async () => {
+    setTestEmailLoading(true);
+    setTestEmailStatus(null);
+    try {
+      const { data } = await api.post('/notifications/test-email');
+      setTestEmailStatus(data);
+    } catch (err) {
+      setTestEmailStatus({
+        success: false,
+        message: err.response?.data?.detail || 'Failed to send test email.'
+      });
+    } finally {
+      setTestEmailLoading(false);
+    }
+  };
+
+  const handleTestSms = async () => {
+    setTestSmsLoading(true);
+    setTestSmsStatus(null);
+    try {
+      const { data } = await api.post('/notifications/test-sms', { phoneNumber: formData.phoneNumber });
+      setTestSmsStatus(data);
+    } catch (err) {
+      setTestSmsStatus({
+        success: false,
+        message: err.response?.data?.detail || 'Failed to send test SMS.'
+      });
+    } finally {
+      setTestSmsLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
@@ -59,7 +96,7 @@ export default function ProfilePage() {
         {/* User Card Header */}
         <div className="flex items-center gap-4 pb-6 border-b border-slate-800">
           <img
-            src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name}&background=6366f1&color=fff`}
+            src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || '')}&background=6366f1&color=fff`}
             alt={user?.name}
             className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500/40"
             referrerPolicy="no-referrer"
@@ -113,50 +150,100 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Notification Preferences */}
+        {/* Notification Preferences & Live Testing */}
         <div className="space-y-4 pt-4 border-t border-slate-800">
           <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
             <Bell className="w-4 h-4 text-indigo-400" />
-            Notification Preferences
+            Notification Preferences & Delivery Testing
           </h3>
 
-          <div className="space-y-3 bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4">
-            {/* Email Notifications Toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-bold text-white block">Email Notifications</span>
-                <span className="text-xs text-slate-400">Receive invitation alerts & appointment reminders via email</span>
+          <div className="space-y-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4">
+            {/* Email Notifications Toggle & Test */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-bold text-white flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-indigo-400" />
+                    Email Notifications
+                  </span>
+                  <span className="text-xs text-slate-400">Receive invitation alerts & appointment reminders via email</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTestEmail}
+                    disabled={testEmailLoading}
+                    className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>{testEmailLoading ? 'Testing...' : 'Test Email'}</span>
+                  </button>
+                  <input
+                    type="checkbox"
+                    checked={formData.notificationPreferences.email}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notificationPreferences: { ...formData.notificationPreferences, email: e.target.checked }
+                      })
+                    }
+                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                  />
+                </div>
               </div>
-              <input
-                type="checkbox"
-                checked={formData.notificationPreferences.email}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    notificationPreferences: { ...formData.notificationPreferences, email: e.target.checked }
-                  })
-                }
-                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
-              />
+
+              {testEmailStatus && (
+                <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                  testEmailStatus.success ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                }`}>
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{testEmailStatus.message}</span>
+                </div>
+              )}
             </div>
 
-            {/* SMS Notifications Toggle */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-              <div>
-                <span className="text-sm font-bold text-white block">SMS Notifications</span>
-                <span className="text-xs text-slate-400">Receive SMS text messages before appointment start times</span>
+            {/* SMS Notifications Toggle & Test */}
+            <div className="space-y-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-bold text-white flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-indigo-400" />
+                    SMS Notifications
+                  </span>
+                  <span className="text-xs text-slate-400">Receive SMS text messages before appointment start times</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTestSms}
+                    disabled={testSmsLoading}
+                    className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>{testSmsLoading ? 'Testing...' : 'Test SMS'}</span>
+                  </button>
+                  <input
+                    type="checkbox"
+                    checked={formData.notificationPreferences.sms}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notificationPreferences: { ...formData.notificationPreferences, sms: e.target.checked }
+                      })
+                    }
+                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                  />
+                </div>
               </div>
-              <input
-                type="checkbox"
-                checked={formData.notificationPreferences.sms}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    notificationPreferences: { ...formData.notificationPreferences, sms: e.target.checked }
-                  })
-                }
-                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
-              />
+
+              {testSmsStatus && (
+                <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                  testSmsStatus.success ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                }`}>
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{testSmsStatus.message}</span>
+                </div>
+              )}
             </div>
 
             {/* In-App Notifications Toggle */}
@@ -195,3 +282,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
