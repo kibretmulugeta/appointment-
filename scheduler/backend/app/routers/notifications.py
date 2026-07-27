@@ -73,3 +73,53 @@ async def test_sms_notification(
     res = await send_sms(phone, message)
     return res
 
+@router.get("/sms-config")
+
+async def get_sms_config(current_user: dict = Depends(get_current_user)):
+    db = get_database()
+    sid, token, phone = "", "", ""
+    if db is not None:
+        doc = await db.app_settings.find_one({"key": "sms_config"})
+        if doc:
+            sid = doc.get("accountSid", "")
+            phone = doc.get("phoneNumber", "")
+
+    # Mask accountSid for safety
+    masked_sid = f"{sid[:6]}...{sid[-4:]}" if len(sid) > 10 else sid
+    return {
+        "configured": bool(sid and phone),
+        "accountSid": masked_sid,
+        "phoneNumber": phone
+    }
+
+@router.post("/sms-config")
+async def save_sms_config(
+    payload: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_database()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection unavailable")
+
+    account_sid = payload.get("accountSid", "").strip()
+    auth_token = payload.get("authToken", "").strip()
+    phone_number = payload.get("phoneNumber", "").strip()
+
+    if not (account_sid and auth_token and phone_number):
+        raise HTTPException(status_code=400, detail="Twilio Account SID, Auth Token, and Sender Phone Number are required")
+
+    await db.app_settings.update_one(
+        {"key": "sms_config"},
+        {
+            "$set": {
+                "accountSid": account_sid,
+                "authToken": auth_token,
+                "phoneNumber": phone_number,
+                "updatedBy": current_user.get("id"),
+            }
+        },
+        upsert=True
+    )
+    return {"success": True, "message": "Twilio SMS configuration saved successfully!"}
+
+

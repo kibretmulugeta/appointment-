@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, Clock, Bell, Check, Save, Send, MessageSquare, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, Clock, Bell, Check, Save, Send, MessageSquare, AlertCircle, Key } from 'lucide-react';
 import api from '../services/api';
 
 export default function ProfilePage() {
@@ -22,6 +22,16 @@ export default function ProfilePage() {
   const [testEmailStatus, setTestEmailStatus] = useState(null);
   const [testSmsStatus, setTestSmsStatus] = useState(null);
 
+  // Twilio Gateway Config State
+  const [showSmsConfig, setShowSmsConfig] = useState(false);
+  const [savingSmsConfig, setSavingSmsConfig] = useState(false);
+  const [smsConfigMsg, setSmsConfigMsg] = useState('');
+  const [smsConfigForm, setSmsConfigForm] = useState({
+    accountSid: '',
+    authToken: '',
+    phoneNumber: ''
+  });
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -31,7 +41,38 @@ export default function ProfilePage() {
         notificationPreferences: user.notificationPreferences || { email: true, sms: false, inApp: true }
       });
     }
+    fetchSmsConfig();
   }, [user]);
+
+  const fetchSmsConfig = async () => {
+    try {
+      const { data } = await api.get('/notifications/sms-config');
+      if (data) {
+        setSmsConfigForm({
+          accountSid: data.accountSid || '',
+          authToken: '',
+          phoneNumber: data.phoneNumber || ''
+        });
+      }
+    } catch {
+      // Ignore background errors
+    }
+  };
+
+  const handleSaveSmsConfig = async () => {
+    setSavingSmsConfig(true);
+    setSmsConfigMsg('');
+    try {
+      const { data } = await api.post('/notifications/sms-config', smsConfigForm);
+      setSmsConfigMsg(data.message || 'Twilio SMS configuration saved!');
+      fetchSmsConfig();
+    } catch (err) {
+      setSmsConfigMsg(err.response?.data?.detail || 'Failed to save Twilio configuration.');
+    } finally {
+      setSavingSmsConfig(false);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -270,7 +311,80 @@ export default function ProfilePage() {
                   <p className="text-[11px] leading-relaxed opacity-90">{testSmsStatus.message}</p>
                 </div>
               )}
+
+              {/* Twilio Credentials Configuration UI */}
+              <div className="mt-3 pt-3 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setShowSmsConfig(!showSmsConfig)}
+                  className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>{showSmsConfig ? 'Hide Twilio Gateway Credentials' : '⚙️ Configure Live Twilio SMS Gateway'}</span>
+                </button>
+
+                {showSmsConfig && (
+                  <div className="mt-3 p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Twilio Gateway API Keys</span>
+                      <span className="text-[10px] text-slate-400">Get free keys at twilio.com</span>
+                    </div>
+
+                    {smsConfigMsg && (
+                      <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-xs text-indigo-300 font-medium">
+                        {smsConfigMsg}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Twilio Account SID</label>
+                        <input
+                          type="text"
+                          placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                          value={smsConfigForm.accountSid}
+                          onChange={(e) => setSmsConfigForm({ ...smsConfigForm, accountSid: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Twilio Auth Token</label>
+                        <input
+                          type="password"
+                          placeholder="••••••••••••••••••••••••••••••••"
+                          value={smsConfigForm.authToken}
+                          onChange={(e) => setSmsConfigForm({ ...smsConfigForm, authToken: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Twilio Sender Phone Number</label>
+                        <input
+                          type="tel"
+                          placeholder="+18881234567"
+                          value={smsConfigForm.phoneNumber}
+                          onChange={(e) => setSmsConfigForm({ ...smsConfigForm, phoneNumber: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveSmsConfig}
+                        disabled={savingSmsConfig}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{savingSmsConfig ? 'Saving API Keys...' : 'Save Twilio Credentials'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
 
 
             {/* In-App Notifications Toggle */}
