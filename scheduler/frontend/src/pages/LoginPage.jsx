@@ -1,16 +1,24 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, Mail, Lock, AlertCircle, ArrowRight, UserPlus, Users, X, Check } from 'lucide-react';
+import { Calendar, Mail, Lock, AlertCircle, ArrowRight, UserPlus, Users, X, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, savedAccounts, switchAccount, removeSavedAccount } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('mode') === 'add' || location.state?.addAccount) {
+      setShowAddForm(true);
+    }
+  }, [location]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +28,7 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid credentials');
+      setError(err.response?.data?.detail || err.response?.data?.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -59,9 +67,13 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/30">
             <Calendar className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-extrabold text-white">Welcome Back</h1>
+          <h1 className="text-2xl font-extrabold text-white">
+            {isAccountSelectionView ? 'Select an Account' : showAddForm ? 'Add New Account' : 'Welcome Back'}
+          </h1>
           <p className="text-xs text-slate-400">
-            {isAccountSelectionView ? 'Select an account to sign in or add a new account' : 'Sign in to your Scheduler account to manage appointments'}
+            {isAccountSelectionView
+              ? 'Choose a saved profile or add a new account to continue'
+              : 'Sign in to your Scheduler account to manage appointments'}
           </p>
         </div>
 
@@ -72,7 +84,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Saved Accounts / Add Account View */}
+        {/* Saved Accounts View */}
         {isAccountSelectionView ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -122,7 +134,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
-              className="w-full py-3 px-4 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 mt-4"
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 mt-4"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add Another Account</span>
@@ -131,17 +143,14 @@ export default function LoginPage() {
         ) : (
           <>
             {hasSavedAccounts && (
-              <div className="flex items-center justify-between bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-400 font-medium">Switch to existing saved account</span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Choose Saved Account</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="w-full flex items-center justify-center gap-2 p-2.5 bg-slate-950/80 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 text-xs font-bold rounded-xl border border-slate-800 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Choose Saved Account ({savedAccounts.length})</span>
+              </button>
             )}
 
             {/* OAuth Buttons */}
@@ -231,4 +240,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
 

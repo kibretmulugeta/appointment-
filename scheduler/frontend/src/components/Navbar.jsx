@@ -49,7 +49,7 @@ export default function Navbar({ onOpenCreateModal }) {
   const handleAddAccount = () => {
     setShowAccountMenu(false);
     logout();
-    navigate('/login');
+    navigate('/login?mode=add', { state: { addAccount: true } });
   };
 
   const otherAccounts = (savedAccounts || []).filter((acc) => acc.email !== user?.email);

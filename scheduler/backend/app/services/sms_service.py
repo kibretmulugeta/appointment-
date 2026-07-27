@@ -9,10 +9,14 @@ def format_phone_e164(phone: str) -> str:
     """Format phone number to E.164 international standard (+1234567890)."""
     if not phone:
         return ""
-    cleaned = re.sub(r'[^\d+]', '', phone)
-    if not cleaned.startswith('+'):
+    cleaned = re.sub(r'[^\d+]', '', phone.strip())
+    # Handle Ethiopian local 10-digit format (09xxxxxxxx or 07xxxxxxxx) -> +2519xxxxxxxx
+    if re.match(r'^0[97]\d{8}$', cleaned):
+        cleaned = '+251' + cleaned[1:]
+    elif not cleaned.startswith('+'):
         cleaned = '+' + cleaned
     return cleaned
+
 
 async def send_sms(to_phone: str, message_body: str) -> dict:
     """Send SMS notification using Twilio API if credentials configured, or simulated fallback."""

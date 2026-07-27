@@ -193,11 +193,24 @@ export default function ProfilePage() {
               </div>
 
               {testEmailStatus && (
-                <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
-                  testEmailStatus.success ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                <div className={`p-3 rounded-xl text-xs font-medium border space-y-1 ${
+                  testEmailStatus.provider === 'smtp' || testEmailStatus.provider === 'resend'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : testEmailStatus.provider === 'simulation'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                 }`}>
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{testEmailStatus.message}</span>
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>
+                      {testEmailStatus.provider === 'smtp' || testEmailStatus.provider === 'resend'
+                        ? '✅ Live Email Delivered'
+                        : testEmailStatus.provider === 'simulation'
+                        ? 'ℹ️ Email Simulation Active'
+                        : '⚠️ Email Delivery Error'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed opacity-90">{testEmailStatus.message}</p>
                 </div>
               )}
             </div>
@@ -237,14 +250,28 @@ export default function ProfilePage() {
               </div>
 
               {testSmsStatus && (
-                <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
-                  testSmsStatus.success ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                <div className={`p-3 rounded-xl text-xs font-medium border space-y-1 ${
+                  testSmsStatus.provider === 'twilio'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : testSmsStatus.provider === 'simulation'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                 }`}>
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{testSmsStatus.message}</span>
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>
+                      {testSmsStatus.provider === 'twilio'
+                        ? '✅ Live Twilio SMS Sent'
+                        : testSmsStatus.provider === 'simulation'
+                        ? 'ℹ️ SMS Simulation Active'
+                        : '⚠️ SMS Delivery Error'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed opacity-90">{testSmsStatus.message}</p>
                 </div>
               )}
             </div>
+
 
             {/* In-App Notifications Toggle */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-800">
