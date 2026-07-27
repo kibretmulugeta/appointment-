@@ -280,19 +280,19 @@ export default function ProfilePage() {
 
               {testEmailStatus && (
                 <div className={`p-3 rounded-xl text-xs font-medium border space-y-1 ${
-                  testEmailStatus.provider === 'smtp' || testEmailStatus.provider === 'resend'
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                    : testEmailStatus.provider === 'simulation'
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  testEmailStatus.success
+                    ? testEmailStatus.provider === 'smtp' || testEmailStatus.provider === 'resend'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                     : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                 }`}>
                   <div className="flex items-center gap-2 font-bold">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>
-                      {testEmailStatus.provider === 'smtp' || testEmailStatus.provider === 'resend'
-                        ? '✅ Live Email Delivered'
-                        : testEmailStatus.provider === 'simulation'
-                        ? 'ℹ️ Email Simulation Active'
+                      {testEmailStatus.success
+                        ? testEmailStatus.provider === 'smtp' || testEmailStatus.provider === 'resend'
+                          ? '✅ Live Email Delivered'
+                          : 'ℹ️ Email Simulation Active'
                         : '⚠️ Email Delivery Error'}
                     </span>
                   </div>
