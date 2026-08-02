@@ -89,13 +89,15 @@ def get_redirect_uri(request: Request) -> str:
 @router.get("/google")
 async def google_auth(request: Request):
     callback_url = get_redirect_uri(request)
+    contacts_scope = "https://www.googleapis.com/auth/contacts.readonly"
     google_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth?"
         f"client_id={settings.GOOGLE_CLIENT_ID}&"
         f"redirect_uri={callback_url}&"
         f"response_type=code&"
-        f"scope=openid%20profile%20email&"
-        f"access_type=offline"
+        f"scope=openid%20profile%20email%20{contacts_scope}&"
+        f"access_type=offline&"
+        f"prompt=consent"
     )
     return RedirectResponse(google_url)
 

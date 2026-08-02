@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, CalendarDays, Users, Bell, User } from 'lucide-react';
+import { LayoutDashboard, Calendar, CalendarDays, BookOpen, BookMarked, Users, Bell, User } from 'lucide-react';
 
 export default function Sidebar() {
   const links = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/calendar', label: 'Calendar', icon: Calendar },
     { to: '/appointments', label: 'Appointments', icon: CalendarDays },
+    { to: '/rentals', label: 'Book Rentals', icon: BookOpen },
+    { to: '/books', label: 'My Books & Reading', icon: BookMarked },
     { to: '/contacts', label: 'Contacts', icon: Users },
     { to: '/notifications', label: 'Notifications', icon: Bell },
     { to: '/profile', label: 'Settings', icon: User },

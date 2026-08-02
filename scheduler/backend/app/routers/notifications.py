@@ -105,6 +105,14 @@ async def save_sms_config(
     auth_token = payload.get("authToken", "").strip()
     phone_number = payload.get("phoneNumber", "").strip()
 
+    doc = await db.app_settings.find_one({"key": "sms_config"}) or {}
+    if "..." in account_sid or not account_sid:
+        account_sid = doc.get("accountSid", "")
+    if "..." in auth_token or not auth_token:
+        auth_token = doc.get("authToken", "")
+    if not phone_number:
+        phone_number = doc.get("phoneNumber", "")
+
     if not (account_sid and auth_token and phone_number):
         raise HTTPException(status_code=400, detail="Twilio Account SID, Auth Token, and Sender Phone Number are required")
 
@@ -154,6 +162,10 @@ async def save_email_config(
     user = payload.get("user", "").strip()
     password = payload.get("pass", "").strip()
     from_email = payload.get("fromEmail", user).strip()
+
+    doc = await db.app_settings.find_one({"key": "email_config"}) or {}
+    if not password:
+        password = doc.get("pass", "")
 
     if not (host and user and password):
         raise HTTPException(status_code=400, detail="SMTP Host, Username, and Password are required")

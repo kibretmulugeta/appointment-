@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
 import AppointmentsPage from './pages/AppointmentsPage';
 import AppointmentDetailPage from './pages/AppointmentDetailPage';
+import BookRentalsPage from './pages/BookRentalsPage';
+import BooksPage from './pages/BooksPage';
 import ContactsPage from './pages/ContactsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -56,6 +58,8 @@ function MainLayout() {
               <Route path="/calendar" element={<CalendarPage onOpenCreateModal={() => setIsModalOpen(true)} />} />
               <Route path="/appointments" element={<AppointmentsPage onOpenCreateModal={() => setIsModalOpen(true)} />} />
               <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
+              <Route path="/rentals" element={<BookRentalsPage />} />
+              <Route path="/books" element={<BooksPage />} />
               <Route path="/contacts" element={<ContactsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/profile" element={<ProfilePage />} />

@@ -423,20 +423,20 @@ export default function ProfilePage() {
 
               {testSmsStatus && (
                 <div className={`p-3 rounded-xl text-xs font-medium border space-y-1 ${
-                  testSmsStatus.provider === 'twilio'
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                    : testSmsStatus.provider === 'simulation'
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  testSmsStatus.success
+                    ? testSmsStatus.provider === 'twilio'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                     : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                 }`}>
                   <div className="flex items-center gap-2 font-bold">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>
-                      {testSmsStatus.provider === 'twilio'
-                        ? '✅ Live Twilio SMS Sent'
-                        : testSmsStatus.provider === 'simulation'
-                        ? 'ℹ️ SMS Simulation Active'
-                        : '⚠️ SMS Delivery Error'}
+                      {testSmsStatus.success
+                        ? testSmsStatus.provider === 'twilio'
+                          ? '✅ Live Twilio SMS Sent'
+                          : 'ℹ️ SMS Simulation Active'
+                        : '⚠️ Twilio SMS Error'}
                     </span>
                   </div>
                   <p className="text-[11px] leading-relaxed opacity-90">{testSmsStatus.message}</p>

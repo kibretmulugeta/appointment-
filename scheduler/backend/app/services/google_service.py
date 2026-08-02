@@ -37,41 +37,48 @@ async def get_google_user_profile(access_token: str) -> Dict[str, Any]:
             return res.json()
         return None
 
-async def fetch_google_contacts(access_token: str) -> List[Dict[str, Any]]:
-    """Fetch user contacts using Google People API."""
+async def fetch_google_contacts(access_token: str) -> tuple[List[Dict[str, Any]], str]:
+    """Fetch user contacts using Google People API, returning (contacts, error_message)."""
     async with httpx.AsyncClient() as client:
-        res = await client.get(
-            "https://people.googleapis.com/v1/people/me/connections",
-            params={
-                "personFields": "names,emailAddresses,phoneNumbers,photos",
-                "pageSize": 100
-            },
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10.0,
-        )
-        if res.status_code == 200:
-            data = res.json()
-            connections = data.get("connections", [])
-            contacts = []
-            for person in connections:
-                names = person.get("names", [])
-                emails = person.get("emailAddresses", [])
-                phones = person.get("phoneNumbers", [])
-                photos = person.get("photos", [])
+        try:
+            res = await client.get(
+                "https://people.googleapis.com/v1/people/me/connections",
+                params={
+                    "personFields": "names,emailAddresses,phoneNumbers,photos",
+                    "pageSize": 100
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10.0,
+            )
+            if res.status_code == 200:
+                data = res.json()
+                connections = data.get("connections", [])
+                contacts = []
+                for person in connections:
+                    names = person.get("names", [])
+                    emails = person.get("emailAddresses", [])
+                    phones = person.get("phoneNumbers", [])
+                    photos = person.get("photos", [])
 
-                name = names[0].get("displayName") if names else None
-                email = emails[0].get("value") if emails else None
-                phone = phones[0].get("value") if phones else ""
-                avatar = photos[0].get("url") if photos else ""
+                    name = names[0].get("displayName") if names else None
+                    email = emails[0].get("value") if emails else None
+                    phone = phones[0].get("value") if phones else ""
+                    avatar = photos[0].get("url") if photos else ""
 
-                if name and email:
-                    contacts.append({
-                        "name": name,
-                        "email": email.lower(),
-                        "phone": phone,
-                        "avatar": avatar,
-                        "source": "google"
-                    })
-            return contacts
-        logger.warning(f"Google People API Warning: {res.status_code} {res.text}")
-        return []
+                    if name and email:
+                        contacts.append({
+                            "name": name,
+                            "email": email.lower(),
+                            "phone": phone,
+                            "avatar": avatar,
+                            "source": "google"
+                        })
+                return contacts, ""
+            
+            logger.warning(f"Google People API Warning ({res.status_code}): {res.text}")
+            if res.status_code in [401, 403]:
+                return [], "Google Contacts permission missing or People API not enabled in your Google Cloud Console. Please log in again with Google."
+            return [], f"Google API Error ({res.status_code}): {res.text}"
+        except Exception as e:
+            logger.error(f"Failed to fetch Google contacts: {e}")
+            return [], f"Network error connecting to Google API: {str(e)}"

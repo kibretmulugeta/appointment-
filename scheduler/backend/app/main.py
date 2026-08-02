@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import connect_to_mongo, close_mongo_connection
 from app.services.reminder_service import start_reminder_scheduler
 
-from app.routers import auth, users, contacts, appointments, notifications, maps
+from app.routers import auth, users, contacts, appointments, notifications, maps, books, rentals, reading_tasks
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("scheduler.main")
@@ -75,6 +75,9 @@ app.include_router(contacts.router)
 app.include_router(appointments.router)
 app.include_router(notifications.router)
 app.include_router(maps.router)
+app.include_router(books.router)
+app.include_router(rentals.router)
+app.include_router(reading_tasks.router)
 
 @app.get("/api/health")
 async def health_check():

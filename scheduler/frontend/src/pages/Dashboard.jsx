@@ -9,46 +9,54 @@ import {
   Plus,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   ArrowRight,
   Sparkles,
   AlertCircle,
   Compass,
   Navigation,
-  ExternalLink
+  ExternalLink,
+  BookOpen,
+  BookMarked,
+  ShieldAlert,
+  AlertTriangle
 } from 'lucide-react';
 import { format, parseISO, isToday, isAfter } from 'date-fns';
-import api from '../services/api';
+import api, { getRentals, getReadingTasks } from '../services/api';
 
 export default function Dashboard({ onOpenCreateModal }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
+  const [rentals, setRentals] = useState([]);
+  const [readingTasks, setReadingTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [liveLocation, setLiveLocation] = useState(null);
-  const [locationLoading, setLocationLoading] = useState(true);
 
   useEffect(() => {
-    fetchAppointments();
+    fetchDashboardData();
     detectLiveLocation();
   }, []);
 
-  const fetchAppointments = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const { data } = await api.get('/appointments');
-      setAppointments(data || []);
+      const [apptsRes, rentalsRes, tasksRes] = await Promise.allSettled([
+        api.get('/appointments'),
+        getRentals(),
+        getReadingTasks()
+      ]);
+
+      if (apptsRes.status === 'fulfilled') setAppointments(apptsRes.value.data || []);
+      if (rentalsRes.status === 'fulfilled') setRentals(rentalsRes.value.data || []);
+      if (tasksRes.status === 'fulfilled') setReadingTasks(tasksRes.value.data || []);
     } catch {
-      setAppointments([]);
-    } finally {
+      // Ignore
+    } flex: {
       setLoading(false);
     }
   };
 
   const detectLiveLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationLoading(false);
-      return;
-    }
+    if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -60,11 +68,8 @@ export default function Dashboard({ onOpenCreateModal }) {
           name: `Current Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
           google_maps_url: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
         });
-        setLocationLoading(false);
       },
-      (err) => {
-        setLocationLoading(false);
-      },
+      () => {},
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -72,7 +77,7 @@ export default function Dashboard({ onOpenCreateModal }) {
   const handleRSVP = async (apptId, statusChoice) => {
     try {
       await api.post(`/appointments/${apptId}/${statusChoice}`);
-      fetchAppointments();
+      fetchDashboardData();
     } catch {
       // Ignore
     }
@@ -84,6 +89,11 @@ export default function Dashboard({ onOpenCreateModal }) {
     const p = a.participants?.find((pt) => pt.email?.toLowerCase() === user?.email?.toLowerCase());
     return p && p.status === 'pending' && a.organizer_id !== user?.id;
   });
+
+  const activeRentals = rentals.filter(r => r.status !== 'returned');
+  const overdueRentals = rentals.filter(r => r.status === 'overdue');
+  const dueSoonRentals = rentals.filter(r => r.status === 'due_soon');
+  const pendingReadingTasks = readingTasks.filter(t => t.status === 'pending');
 
   return (
     <div className="space-y-8">
@@ -99,19 +109,50 @@ export default function Dashboard({ onOpenCreateModal }) {
               Hello, {user?.name || 'User'}! 👋
             </h1>
             <p className="text-slate-400 text-sm mt-1 max-w-xl">
-              You have <span className="text-indigo-400 font-bold">{todayAppts.length}</span> appointment{todayAppts.length === 1 ? '' : 's'} scheduled for today and <span className="text-amber-400 font-bold">{pendingInvites.length}</span> pending invitation{pendingInvites.length === 1 ? '' : 's'}.
+              You have <span className="text-indigo-400 font-bold">{todayAppts.length}</span> appointment{todayAppts.length === 1 ? '' : 's'} today, <span className="text-amber-400 font-bold">{activeRentals.length}</span> active book loan{activeRentals.length === 1 ? '' : 's'}, and <span className="text-rose-400 font-bold">{overdueRentals.length}</span> overdue alert{overdueRentals.length === 1 ? '' : 's'}.
             </p>
           </div>
 
-          <button
-            onClick={onOpenCreateModal}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-xl shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-95 shrink-0"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Create Appointment</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => navigate('/rentals')}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-3 rounded-2xl transition-all"
+            >
+              <BookOpen className="w-4 h-4 text-indigo-400" />
+              <span>Book Rentals</span>
+            </button>
+            <button
+              onClick={onOpenCreateModal}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-xl shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Appointment</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Book Rental Quick Alerts Bar */}
+      {(overdueRentals.length > 0 || dueSoonRentals.length > 0) && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-6 h-6 text-rose-400 shrink-0 animate-bounce" />
+            <div>
+              <h3 className="text-sm font-bold text-white">Book Rental Alerts & Reminders</h3>
+              <p className="text-xs text-rose-300 mt-0.5">
+                {overdueRentals.length > 0 && `${overdueRentals.length} book(s) are OVERDUE for return! `}
+                {dueSoonRentals.length > 0 && `${dueSoonRentals.length} book(s) due within 3 days.`}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/rentals"
+            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg shrink-0"
+          >
+            Manage Book Rentals
+          </Link>
+        </div>
+      )}
 
       {/* Live Geolocation Card Banner */}
       {liveLocation && (
@@ -296,7 +337,29 @@ export default function Dashboard({ onOpenCreateModal }) {
 
           {/* Quick Shortcuts */}
           <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-3">
-            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">Quick Navigation</h3>
+            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">Book & Schedule Navigation</h3>
+            <Link
+              to="/rentals"
+              className="flex items-center justify-between p-3.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-sm font-semibold transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-4 h-4 text-indigo-400" />
+                <span>Book Rentals ({activeRentals.length})</span>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-500" />
+            </Link>
+
+            <Link
+              to="/books"
+              className="flex items-center justify-between p-3.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-sm font-semibold transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <BookMarked className="w-4 h-4 text-indigo-400" />
+                <span>My Books & Reading Tasks ({pendingReadingTasks.length})</span>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-500" />
+            </Link>
+
             <Link
               to="/calendar"
               className="flex items-center justify-between p-3.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-sm font-semibold transition-colors"

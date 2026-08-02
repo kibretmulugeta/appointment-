@@ -125,7 +125,10 @@ async def import_google_contacts(current_user: dict = Depends(get_current_user))
     if not google_token:
         raise HTTPException(status_code=400, detail="Google account not linked or Google Contacts permission missing. Please log in with Google to sync contacts.")
         
-    g_contacts = await fetch_google_contacts(google_token)
+    g_contacts, err_msg = await fetch_google_contacts(google_token)
+    if err_msg:
+        raise HTTPException(status_code=400, detail=err_msg)
+
     db = get_database()
     owner_id = str(current_user["id"])
     

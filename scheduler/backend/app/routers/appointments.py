@@ -152,10 +152,16 @@ async def create_appointment(
         )
         background_tasks.add_task(send_email, p["email"], f"Invitation: {appt_in.title}", email_html)
 
-        # SMS Notification
+        # SMS Notification for invited participants
         if p.get("phone"):
             sms_text = f"You have been invited to '{appt_in.title}' by {organizer_name} on {date_str} at {appt_in.location.name}. View details: {invite_link}"
             background_tasks.add_task(send_sms, p["phone"], sms_text)
+
+    # SMS Confirmation for Organizer
+    organizer_phone = current_user.get("phoneNumber")
+    if organizer_phone:
+        sms_text = f"📅 Appointment Scheduled: '{appt_in.title}' on {date_str} ({time_str}) at {appt_in.location.name}."
+        background_tasks.add_task(send_sms, organizer_phone, sms_text)
 
     doc["id"] = appt_id
     del doc["_id"]

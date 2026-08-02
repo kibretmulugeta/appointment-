@@ -19,24 +19,39 @@ def format_phone_e164(phone: str) -> str:
     return cleaned
 
 async def get_twilio_credentials() -> tuple[str, str, str]:
-    """Retrieve Twilio credentials from settings (.env) or MongoDB database."""
+    """Retrieve Twilio credentials from settings (.env) or MongoDB database, ensuring no masked strings are used."""
     sid = settings.TWILIO_ACCOUNT_SID.strip() if settings.TWILIO_ACCOUNT_SID else ""
     token = settings.TWILIO_AUTH_TOKEN.strip() if settings.TWILIO_AUTH_TOKEN else ""
     phone = settings.TWILIO_PHONE_NUMBER.strip() if settings.TWILIO_PHONE_NUMBER else ""
 
-    if not (sid and token and phone):
-        db = get_database()
-        if db is not None:
-            try:
-                doc = await db.app_settings.find_one({"key": "sms_config"})
-                if doc and doc.get("accountSid") and doc.get("authToken") and doc.get("phoneNumber"):
-                    sid = doc["accountSid"].strip()
-                    token = doc["authToken"].strip()
-                    phone = doc["phoneNumber"].strip()
-            except Exception as e:
-                logger.warning(f"Error reading SMS config from DB: {e}")
+    db = get_database()
+    if db is not None:
+        try:
+            doc = await db.app_settings.find_one({"key": "sms_config"})
+            if doc:
+                db_sid = doc.get("accountSid", "").strip()
+                db_token = doc.get("authToken", "").strip()
+                db_phone = doc.get("phoneNumber", "").strip()
+
+                if db_sid and "..." not in db_sid:
+                    sid = db_sid
+                if db_token and "..." not in db_token:
+                    token = db_token
+                if db_phone:
+                    phone = db_phone
+        except Exception as e:
+            logger.warning(f"Error reading SMS config from DB: {e}")
+
+    # Safety fallback to .env if DB has masked value
+    if "..." in sid or not sid:
+        sid = settings.TWILIO_ACCOUNT_SID.strip() if settings.TWILIO_ACCOUNT_SID else ""
+    if "..." in token or not token:
+        token = settings.TWILIO_AUTH_TOKEN.strip() if settings.TWILIO_AUTH_TOKEN else ""
+    if not phone:
+        phone = settings.TWILIO_PHONE_NUMBER.strip() if settings.TWILIO_PHONE_NUMBER else ""
 
     return sid, token, phone
+
 
 async def send_sms(to_phone: str, message_body: str) -> dict:
     """Send SMS notification using Twilio API if credentials configured, or simulated fallback."""
