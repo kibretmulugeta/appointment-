@@ -19,7 +19,7 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.26.0",
     "oxlint": "^1.71.0",
-    "postcss": "^8.5.22",
+    "postcss": "^8.5.26",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
